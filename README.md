@@ -86,7 +86,7 @@ python3 run_full_suite.py --db milvus --dim 128
 python3 run_full_suite.py --db weaviate --dim 1024
 ```
 
-> **Results:** Query metrics are saved in `results/queries/summary_metrics.csv`.
+> **Results:** Query metrics are saved in `results/queries/`.
 
 ---
 
