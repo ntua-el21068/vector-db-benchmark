@@ -1,0 +1,28 @@
+# Python junk
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# MacOS junk (αν είσαι σε Mac)
+.DS_Store
+
+# IDE junk
+.vscode/
+.idea/
+
+# --- PROJECT SPECIFIC ---
+# Αγνοούμε τα βαριά δεδομένα
+data/
+# Αγνοούμε τα Docker volumes (βάσεις δεδομένων)
+volumes/
+# Αγνοούμε τα προσωρινά logs, κρατάμε ίσως μόνο τα τελικά csv
+results/logs/
+*.log
+
+# Αγνοούμε τα αποτελέσματα αν είναι τεράστια (προαιρετικό)
+# results/
