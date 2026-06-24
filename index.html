@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Milvus vs Weaviate — Vector DB Benchmark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14; --panel:#10141D; --panel-2:#161B26; --line:rgba(255,255,255,0.08);
+    --text:#E8EAF0; --text-dim:#8B93A7; --text-faint:#5A6178;
+    --milvus:#4FD1C5; --milvus-dim:#1F4F4B;
+    --weaviate:#F0A65A; --weaviate-dim:#5A3B1E;
+    --fail:#E2545A;
+    --display:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);line-height:1.6;}
+  .wrap{max-width:980px;margin:0 auto;padding:0 24px;}
+  .eyebrow{font-family:var(--mono);font-size:12.5px;color:var(--milvus);letter-spacing:0.02em;}
+  .eyebrow::before{content:"$ ";color:var(--text-faint);}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,5vw,52px);line-height:1.12;margin:14px 0 18px;letter-spacing:-0.01em;}
+  h2{font-family:var(--display);font-weight:700;font-size:24px;margin:0 0 6px;}
+  h3{font-family:var(--display);font-weight:500;font-size:16px;margin:0 0 10px;color:var(--text);}
+  p{color:var(--text-dim);font-size:15.5px;margin:0 0 14px;max-width:680px;}
+  .sub{font-size:18px;color:var(--text-dim);max-width:640px;margin:0 0 28px;}
+  a{color:var(--milvus);text-decoration:none;border-bottom:1px solid var(--milvus-dim);}
+  a:hover{border-bottom-color:var(--milvus);}
+  section{padding:64px 0;border-top:1px solid var(--line);}
+  section:first-of-type{border-top:none;}
+  .hero{padding-top:72px;padding-bottom:48px;}
+  .meta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px;}
+  .pill{font-family:var(--mono);font-size:12.5px;color:var(--text-dim);border:1px solid var(--line);border-radius:6px;padding:6px 12px;background:var(--panel);}
+  .pill b{color:var(--text);font-weight:500;}
+  .legend{display:flex;gap:20px;font-family:var(--mono);font-size:13px;color:var(--text-dim);margin-bottom:16px;flex-wrap:wrap;}
+  .legend span{display:flex;align-items:center;gap:7px;}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  .dot.m{background:var(--milvus);}
+  .dot.w{background:var(--weaviate);}
+  .dot.f{background:var(--fail);}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  @media (max-width:760px){.grid2,.grid3{grid-template-columns:1fr;}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px;}
+  .stat-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;}
+  .stat-num{font-family:var(--mono);font-weight:700;font-size:26px;color:var(--text);}
+  .stat-label{font-size:12.5px;color:var(--text-faint);margin-top:4px;}
+  .chart-box{position:relative;height:280px;margin-top:6px;}
+  .insight{font-size:14px;color:var(--text-dim);border-left:2px solid var(--milvus-dim);padding-left:14px;margin-top:18px;}
+  .arch-card{border-radius:10px;border:1px solid var(--line);padding:24px;background:var(--panel);}
+  .arch-card.weaviate{border-color:rgba(240,166,90,0.25);}
+  .arch-card.milvus{border-color:rgba(79,209,197,0.25);}
+  .arch-tag{font-family:var(--mono);font-size:11px;letter-spacing:0.04em;text-transform:uppercase;padding:3px 9px;border-radius:5px;display:inline-block;margin-bottom:12px;}
+  .arch-tag.w{color:var(--weaviate);background:rgba(240,166,90,0.12);}
+  .arch-tag.m{color:var(--milvus);background:rgba(79,209,197,0.12);}
+  .matrix{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px;}
+  .cell{aspect-ratio:1.3;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;gap:4px;}
+  .cell.pass{background:rgba(79,209,197,0.12);color:var(--milvus);}
+  .cell.fail{background:rgba(226,84,90,0.12);color:var(--fail);}
+  .cell .dim{color:var(--text-faint);font-size:10px;}
+  .log{background:#070A10;border:1px solid var(--line);border-radius:10px;padding:18px 20px;font-family:var(--mono);font-size:12.5px;color:var(--text-dim);overflow-x:auto;}
+  .log .l1{color:var(--fail);}
+  .log .l2{color:var(--weaviate);}
+  .log .l3{color:var(--text-faint);}
+  table.dec{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px;}
+  table.dec th{text-align:left;font-family:var(--mono);font-size:11.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.03em;padding:8px 10px;border-bottom:1px solid var(--line);}
+  table.dec td{padding:10px 10px;border-bottom:1px solid var(--line);color:var(--text-dim);}
+  table.dec tr:last-child td{border-bottom:none;}
+  footer{padding:40px 0 64px;}
+  .authors{font-size:13.5px;color:var(--text-faint);}
+  .btn{font-family:var(--mono);font-size:13px;color:var(--bg);background:var(--milvus);padding:10px 18px;border-radius:7px;display:inline-block;border:none;font-weight:700;}
+  .btn:hover{border-bottom:none;opacity:0.9;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="hero">
+    <div class="eyebrow">docker stats --constrained --ram=8g --cpu=2</div>
+    <h1>Milvus stays standing.<br>Weaviate sprints — until it runs out of memory.</h1>
+    <p class="sub">A head-to-head benchmark of two vector databases under a deliberately tight resource budget — synthetic datasets up to 2.5M vectors, three embedding dimensions, and an 8GB RAM ceiling designed to break something.</p>
+    <div class="meta-row">
+      <span class="pill"><b>8GB</b> RAM</span>
+      <span class="pill"><b>2</b> vCPUs</span>
+      <span class="pill"><b>160GB</b> SSD</span>
+      <span class="pill"><b>2.5M</b> vectors</span>
+      <span class="pill"><b>128 / 512 / 1024</b>d embeddings</span>
+      <span class="pill"><b>9</b> dataset configs</span>
+    </div>
+    <div style="margin-top:28px;">
+      <a class="btn" href="https://github.com/ntua-el21068/vector-db-benchmark" target="_blank">View source on GitHub →</a>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">architecture</div>
+    <h2>One process vs. five</h2>
+    <p>The core trade-off being tested: keep everything in one address space for speed, or split it into specialized services for resilience.</p>
+    <div class="grid2" style="margin-top:18px;">
+      <div class="arch-card weaviate">
+        <span class="arch-tag w">monolithic</span>
+        <h3>Weaviate</h3>
+        <p style="font-size:14px;margin-bottom:8px;">Single Go binary. Vector index (HNSW), storage, and request handling share one memory space — no serialization cost between components, but no isolation either. A memory spike anywhere takes the whole process down.</p>
+      </div>
+      <div class="arch-card milvus">
+        <span class="arch-tag m">microservices</span>
+        <h3>Milvus</h3>
+        <p style="font-size:14px;margin-bottom:8px;">Proxy, coordinator, index nodes and query nodes run as separate processes talking over gRPC, with storage (segments) offloaded to MinIO. More moving parts and a network hop per request, but no single point of memory failure.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">result 01 — ingestion</div>
+    <h2>Throughput vs. stability under write load</h2>
+    <p>At 128 dimensions, Milvus actually got <em>faster</em> as the dataset grew — startup overhead from etcd/MinIO coordination gets amortized over more vectors. Weaviate did the opposite: every new vector makes the HNSW graph more expensive to update, and write speed degrades as the dataset scales.</p>
+    <div class="legend">
+      <span><span class="dot m"></span>Milvus</span>
+      <span><span class="dot w"></span>Weaviate</span>
+      <span><span class="dot f"></span>OOM crash — no data point</span>
+    </div>
+    <div class="chart-box"><canvas id="chartIngestion" role="img" aria-label="Ingestion throughput in vectors per second at 128 dimensions across Small, Medium and Big dataset sizes. Milvus rises from 13700 to 26500 VPS. Weaviate falls from 427 to 299 VPS at Medium, then crashes from an out-of-memory error at Big with no completed run.">Milvus: Small 13700 VPS, Big 26500 VPS. Weaviate: Small 427 VPS, Medium 299 VPS, Big: OOM crash.</canvas></div>
+    <p class="insight">At the Big setting, Weaviate didn't just slow down — it didn't finish. Every "Big" ingestion run across all three dimensions ended in an OOM kill. Milvus completed all nine.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">result 02 — dimensionality</div>
+    <h2>Higher dimensions cost everyone — but not equally</h2>
+    <p>Moving from 128d to 1024d embeddings (typical of modern LLM outputs) makes every distance calculation linearly more expensive. Milvus throughput dropped ~5.9x; it stayed CPU-bound by flushing segments to disk instead of holding everything in RAM. Weaviate, which keeps its HNSW graph resident in memory, fell even further behind at every dimension tested.</p>
+    <div class="legend">
+      <span><span class="dot m"></span>Milvus</span>
+      <span><span class="dot w"></span>Weaviate</span>
+    </div>
+    <div class="chart-box"><canvas id="chartDim" role="img" aria-label="Ingestion throughput in vectors per second for the Medium dataset size, log scale, across 128, 512 and 1024 dimensions. Milvus: 21566, 9113, 4472. Weaviate: 299, 204, 141.">Milvus at Medium size: 21566 VPS (128d), 9113 VPS (512d), 4472 VPS (1024d). Weaviate: 299, 204, 141 VPS.</canvas></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">result 03 — the "bigger-than-RAM" wall</div>
+    <h2>What actually survived 8GB of RAM</h2>
+    <p>Two separate questions: could each system <em>ingest</em> a dataset, and could it then <em>query</em> it? HNSW indexes need to live in RAM to be searched — so a successful ingest doesn't guarantee a queryable index once the data is loaded back for search.</p>
+    <div class="grid2" style="margin-top:16px;">
+      <div class="card">
+        <h3>Ingestion success — 9 configs</h3>
+        <div class="matrix">
+          <div class="cell pass">✓<span class="dim">128d·S</span></div>
+          <div class="cell pass">✓<span class="dim">512d·S</span></div>
+          <div class="cell pass">✓<span class="dim">1024d·S</span></div>
+          <div class="cell pass">✓<span class="dim">128d·M</span></div>
+          <div class="cell pass">✓<span class="dim">512d·M</span></div>
+          <div class="cell pass">✓<span class="dim">1024d·M</span></div>
+          <div class="cell pass">✓<span class="dim">128d·B</span></div>
+          <div class="cell pass">✓<span class="dim">512d·B</span></div>
+          <div class="cell pass">✓<span class="dim">1024d·B</span></div>
+        </div>
+        <p style="font-size:13px;margin:14px 0 0;">Milvus: <b style="color:var(--milvus)">9 / 9</b> — including the 9.6GB 1024d-Big set, offloaded to MinIO.</p>
+      </div>
+      <div class="card">
+        <h3>Ingestion success — 9 configs</h3>
+        <div class="matrix">
+          <div class="cell pass">✓<span class="dim">128d·S</span></div>
+          <div class="cell pass">✓<span class="dim">512d·S</span></div>
+          <div class="cell pass">✓<span class="dim">1024d·S</span></div>
+          <div class="cell pass">✓<span class="dim">128d·M</span></div>
+          <div class="cell pass">✓<span class="dim">512d·M</span></div>
+          <div class="cell pass">✓<span class="dim">1024d·M</span></div>
+          <div class="cell fail">✗<span class="dim">128d·B</span></div>
+          <div class="cell fail">✗<span class="dim">512d·B</span></div>
+          <div class="cell fail">✗<span class="dim">1024d·B</span></div>
+        </div>
+        <p style="font-size:13px;margin:14px 0 0;">Weaviate: <b style="color:var(--weaviate)">6 / 9</b> — every "Big" config killed by the Linux OOM killer.</p>
+      </div>
+    </div>
+    <div class="insight">Even Milvus hit a ceiling at query time: the 1024d-Big index ingested fine but was too large to reload into 8GB of RAM for search, so only 5 of 9 configs ended up fully query-benchmarkable for either system.</div>
+  </section>
+
+  <section>
+    <div class="eyebrow">result 03 — incident report</div>
+    <h2>Anatomy of a crash</h2>
+    <p>The Weaviate 512d-Big run, reconstructed from container logs and <code style="font-family:var(--mono);font-size:13px;background:var(--panel-2);padding:1px 5px;border-radius:4px;">docker stats</code> sampling:</p>
+    <div class="log">
+<div class="l3">[start]    container weaviate_db begins ingesting the 512d-Big set</div>
+<div class="l3">[ramp-up]  HNSW graph grows, RAM climbs steadily — sawtooth CPU pattern (GC pressure)</div>
+<div class="l2">[approach] RAM nears the container's 7.7GB hard limit</div>
+<div class="l1">[repeat]   client errors: ReadTimeout, then RemoteDisconnected</div>
+<div class="l1">[end]      Linux OOM killer invoked — process terminated</div>
+    </div>
+    <p style="margin-top:14px;">Milvus completed the same 512d-Big ingest without incident, with a flat, bounded memory profile — it offloads sealed segments to disk instead of fighting to keep the whole index resident in RAM.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">result 04 — query performance</div>
+    <h2>Once it's in memory, Weaviate is fast — really fast</h2>
+    <p>Pure k-NN search (no filtering) tells the opposite story to ingestion. For datasets that fit comfortably in RAM, Weaviate's single-process design avoids Milvus's internal gRPC hop between proxy and query nodes — and it shows, especially in the tail.</p>
+    <div class="grid2">
+      <div>
+        <div class="legend"><span><span class="dot m"></span>Milvus avg</span><span><span class="dot w"></span>Weaviate avg</span></div>
+        <h3 style="font-size:14px;color:var(--text-dim);">Avg latency, pure k-NN, 128d (ms)</h3>
+        <div class="chart-box" style="height:230px;"><canvas id="chartLatency" role="img" aria-label="Average pure k-NN search latency in milliseconds at 128 dimensions across Small, Medium and Big dataset sizes. Milvus: 5.0, 10.2, 21.1. Weaviate: 6.1, 7.3, 10.4.">Milvus: 5.0ms, 10.2ms, 21.1ms. Weaviate: 6.1ms, 7.3ms, 10.4ms.</canvas></div>
+      </div>
+      <div>
+        <div class="legend"><span><span class="dot m"></span>Milvus</span><span><span class="dot w"></span>Weaviate</span></div>
+        <h3 style="font-size:14px;color:var(--text-dim);">Throughput, pure k-NN, 128d (QPS)</h3>
+        <div class="chart-box" style="height:230px;"><canvas id="chartQPS" role="img" aria-label="Query throughput in queries per second at 128 dimensions across Small, Medium and Big dataset sizes. Milvus: 199, 98, 47. Weaviate: 164, 136, 96.">Milvus: 199, 98, 47 QPS. Weaviate: 164, 136, 96 QPS.</canvas></div>
+      </div>
+    </div>
+    <div class="grid3" style="margin-top:24px;">
+      <div class="stat-card"><div class="stat-num" style="color:var(--weaviate)">2x</div><div class="stat-label">Weaviate's QPS advantage over Milvus at 128d-Big (96 vs 47)</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--weaviate)">25.9 → 10.4ms</div><div class="stat-label">P95 latency at Big: Milvus vs Weaviate — Weaviate is more consistent too</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--milvus)">σ ≈ 11ms</div><div class="stat-label">Milvus's latency jitter from internal gRPC hops, vs ≈1ms for Weaviate</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">result 05 — filtered search</div>
+    <h2>Add a metadata filter, and the lead flips</h2>
+    <p>Pure vector search favors Weaviate's tight, single-process loop. But combine a vector search with a boolean metadata filter (<code style="font-family:var(--mono);font-size:13px;background:var(--panel-2);padding:1px 5px;border-radius:4px;">city_id == X AND quality_score &gt; Y</code>) and Milvus's bitmap pre-filtering takes over — it can skip ineligible vectors before the expensive distance calculation even starts.</p>
+    <div class="chart-box"><canvas id="chartFilter" role="img" aria-label="Average latency for a combined categorical and range filter query at 128 dimensions across Small, Medium and Big dataset sizes. Milvus: 4.9, 6.2, 11.7 milliseconds. Weaviate: 5.8, 11.3, 26.2 milliseconds.">Milvus: 4.9ms, 6.2ms, 11.7ms. Weaviate: 5.8ms, 11.3ms, 26.2ms.</canvas></div>
+    <p class="insight">The gap widens further at the tail, even at the Medium dataset size: Milvus's P95 stays at 6.9ms while Weaviate's climbs to 31.9ms. Milvus's bitmap masking isolates filter cost from the vector search itself; Weaviate has to reconcile its inverted index with the HNSW graph on every combined query.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">conclusion</div>
+    <h2>The sprinter and the marathon runner</h2>
+    <p>Neither database "wins" outright — the results trace a clean trade-off between raw query speed and the ability to survive scale.</p>
+    <div class="grid2" style="margin-top:18px;">
+      <div class="arch-card weaviate">
+        <span class="arch-tag w">the sprinter</span>
+        <h3>Weaviate</h3>
+        <p style="font-size:14px;">Near-zero jitter, up to 2x the query throughput, and excellent equality-filter performance — as long as the dataset stays inside the RAM budget. Push past that line and it doesn't degrade, it crashes.</p>
+      </div>
+      <div class="arch-card milvus">
+        <span class="arch-tag m">the marathon runner</span>
+        <h3>Milvus</h3>
+        <p style="font-size:14px;">A steady 5-10ms network tax on every query, in exchange for ingestion that gets faster with scale, 2.3x better storage efficiency, and zero crashes across all nine dataset configurations.</p>
+      </div>
+    </div>
+    <table class="dec">
+      <tr><th>If your priority is...</th><th>Choose</th></tr>
+      <tr><td>Lowest possible read latency, dataset fits in RAM</td><td style="color:var(--weaviate);font-family:var(--mono);">Weaviate</td></tr>
+      <tr><td>Simple equality filters on categorical fields</td><td style="color:var(--weaviate);font-family:var(--mono);">Weaviate</td></tr>
+      <tr><td>Write-heavy ingestion at growing scale</td><td style="color:var(--milvus);font-family:var(--mono);">Milvus</td></tr>
+      <tr><td>Dataset size is unpredictable or exceeds RAM</td><td style="color:var(--milvus);font-family:var(--mono);">Milvus</td></tr>
+      <tr><td>Complex multi-condition (AND) metadata filters</td><td style="color:var(--milvus);font-family:var(--mono);">Milvus</td></tr>
+      <tr><td>Storage cost at large scale</td><td style="color:var(--milvus);font-family:var(--mono);">Milvus</td></tr>
+    </table>
+  </section>
+
+  <footer>
+    <p class="authors">A.-M. Thanopoulou &amp; G. Chamarakis — School of Electrical and Computer Engineering, NTUA<br>Full methodology, dataset generator and benchmark scripts: <a href="https://github.com/ntua-el21068/vector-db-benchmark" target="_blank">github.com/ntua-el21068/vector-db-benchmark</a></p>
+  </footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const MILVUS = '#4FD1C5', WEAVIATE = '#F0A65A', FAIL = '#E2545A';
+const baseOpts = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{ legend:{display:false}, tooltip:{titleFont:{family:'JetBrains Mono'},bodyFont:{family:'JetBrains Mono'}} },
+  scales:{
+    x:{ grid:{color:'rgba(255,255,255,0.06)'}, ticks:{color:'#8B93A7',font:{family:'JetBrains Mono',size:11}} },
+    y:{ grid:{color:'rgba(255,255,255,0.06)'}, ticks:{color:'#8B93A7',font:{family:'JetBrains Mono',size:11}} }
+  }
+};
+
+new Chart(document.getElementById('chartIngestion'), {
+  type:'bar',
+  data:{ labels:['Small','Medium','Big'],
+    datasets:[
+      { label:'Milvus', data:[13700,null,26500], backgroundColor:MILVUS, borderRadius:4, barPercentage:0.55 },
+      { label:'Weaviate', data:[427,299,null], backgroundColor:WEAVIATE, borderRadius:4, barPercentage:0.55 },
+      { label:'OOM crash', data:[null,null,1], backgroundColor:FAIL, borderRadius:4, barPercentage:0.55 }
+    ]},
+  options:{...baseOpts, scales:{...baseOpts.scales, y:{...baseOpts.scales.y, title:{display:true,text:'vectors / sec',color:'#5A6178',font:{family:'JetBrains Mono',size:11}}}}}
+});
+
+new Chart(document.getElementById('chartDim'), {
+  type:'bar',
+  data:{ labels:['128d','512d','1024d'],
+    datasets:[
+      { label:'Milvus', data:[21566,9113,4472], backgroundColor:MILVUS, borderRadius:4 },
+      { label:'Weaviate', data:[299,204,141], backgroundColor:WEAVIATE, borderRadius:4 }
+    ]},
+  options:{...baseOpts, scales:{...baseOpts.scales, y:{...baseOpts.scales.y, type:'logarithmic', title:{display:true,text:'vectors / sec (log)',color:'#5A6178',font:{family:'JetBrains Mono',size:11}}}}}
+});
+
+new Chart(document.getElementById('chartLatency'), {
+  type:'line',
+  data:{ labels:['Small','Medium','Big'],
+    datasets:[
+      { label:'Milvus', data:[5.0,10.2,21.1], borderColor:MILVUS, backgroundColor:MILVUS, tension:0.3, pointRadius:4, pointStyle:'circle' },
+      { label:'Weaviate', data:[6.1,7.3,10.4], borderColor:WEAVIATE, backgroundColor:WEAVIATE, tension:0.3, pointRadius:4, pointStyle:'rectRot', borderDash:[6,3] }
+    ]},
+  options:{...baseOpts, scales:{...baseOpts.scales, y:{...baseOpts.scales.y, title:{display:true,text:'ms',color:'#5A6178',font:{family:'JetBrains Mono',size:11}}}}}
+});
+
+new Chart(document.getElementById('chartQPS'), {
+  type:'bar',
+  data:{ labels:['Small','Medium','Big'],
+    datasets:[
+      { label:'Milvus', data:[199,98,47], backgroundColor:MILVUS, borderRadius:4 },
+      { label:'Weaviate', data:[164,136,96], backgroundColor:WEAVIATE, borderRadius:4 }
+    ]},
+  options:{...baseOpts, scales:{...baseOpts.scales, y:{...baseOpts.scales.y, title:{display:true,text:'queries / sec',color:'#5A6178',font:{family:'JetBrains Mono',size:11}}}}}
+});
+
+new Chart(document.getElementById('chartFilter'), {
+  type:'line',
+  data:{ labels:['Small','Medium','Big'],
+    datasets:[
+      { label:'Milvus', data:[4.9,6.2,11.7], borderColor:MILVUS, backgroundColor:MILVUS, tension:0.3, pointRadius:4, pointStyle:'circle' },
+      { label:'Weaviate', data:[5.8,11.3,26.2], borderColor:WEAVIATE, backgroundColor:WEAVIATE, tension:0.3, pointRadius:4, pointStyle:'rectRot', borderDash:[6,3] }
+    ]},
+  options:{...baseOpts, scales:{...baseOpts.scales, y:{...baseOpts.scales.y, title:{display:true,text:'ms',color:'#5A6178',font:{family:'JetBrains Mono',size:11}}}}}
+});
+</script>
+</body>
+</html>
